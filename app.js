@@ -1,48 +1,161 @@
-<!doctype html>
-<html lang="pl">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Głosowanie (anonimowe)</title>
-  <link rel="stylesheet" href="style.css"/>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-</head>
-<body>
-  <div class="container">
-    <header><h1>Głosowanie — demo</h1></header>
+// app.js
+if (typeof firebase === 'undefined') {
+  document.getElementById('status').textContent = 'Błąd ładowania Firebase SDK.';
+}
 
-    <section id="voting-area">
-      <p id="status">Ładowanie…</p>
+const firebaseConfig = {
+  apiKey: "AIzaSyDrH70P_t7GEpfaFPISF9PmZu4TwhtmOTI",
+  authDomain: "vote2-6e553.firebaseapp.com",
+  projectId: "vote2-6e553",
+  storageBucket: "vote2-6e553.firebasestorage.app",
+  messagingSenderId: "426318102620",
+  appId: "1:426318102620:web:e4b39f2f5f87dc34fd6699",
+  measurementId: "G-7N5F3QPNLG"
+};
 
-      <div id="voting-box" style="display:none;">
-        <h2 id="voting-title"></h2>
-        <p id="voting-desc"></p>
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-        <label>Podaj imię / identyfikator:</label>
-        <input id="display-name" placeholder="np. Jan Kowalski"/>
+const statusEl = document.getElementById('status');
+const votingBox = document.getElementById('voting-box');
+const closedBox = document.getElementById('closed-box');
+const votingTitle = document.getElementById('voting-title');
+const votingDesc = document.getElementById('voting-desc');
+const displayNameInput = document.getElementById('display-name');
+const btnFor = document.getElementById('btn-for');
+const btnAgainst = document.getElementById('btn-against');
+const btnAbstain = document.getElementById('btn-abstain');
+const voteResult = document.getElementById('vote-result');
+const countsDiv = document.getElementById('counts');
+const percentagesDiv = document.getElementById('percentages');
+const recentDiv = document.getElementById('recent');
 
-        <div class="buttons">
-          <button id="btn-for">ZA</button>
-          <button id="btn-against">PRZECIW</button>
-          <button id="btn-abstain">WSTRZYMAJ SIĘ</button>
-        </div>
-        <p id="vote-result" class="muted"></p>
-      </div>
+let uid = null;
+let activeVotingId = null;
+let activeVotingData = null;
 
-      <div id="closed-box" style="display:none;">
-        <h2>Wyniki głosowania</h2>
-        <div id="counts"></div>
-        <div id="percentages" class="muted"></div>
-        <h3>Ostatnie</h3>
-        <div id="recent"></div>
-      </div>
-    </section>
+auth.signInAnonymously().catch(err=>{
+  statusEl.textContent = 'Błąd anon. logowania: ' + err.message;
+});
 
-    <footer><small>Głosowanie demo.</small></footer>
-  </div>
+auth.onAuthStateChanged(async user=>{
+  if(!user) return;
+  uid = user.uid;
+  statusEl.textContent = 'Połączono';
+  await loadActiveVoting();
+});
 
-  <script src="app.js"></script>
-</body>
-</html>
+async function loadActiveVoting(){
+  const snap = await db.collection('votings').where('status','in',['draft','voting','closed']).limit(1).get();
+  if(snap.empty){
+    statusEl.textContent = 'Brak aktywnego głosowania.';
+    return;
+  }
+
+  const doc = snap.docs[0];
+  activeVotingId = doc.id;
+  activeVotingData = doc.data();
+
+  votingTitle.textContent = activeVotingData.title;
+  votingDesc.textContent = activeVotingData.description;
+
+  if(activeVotingData.status === 'draft'){
+    statusEl.textContent = "Głosowanie jeszcze się nie rozpoczęło.";
+    votingBox.style.display = 'none';
+    closedBox.style.display = 'none';
+    return;
+  }
+
+  if(activeVotingData.status === 'voting'){
+    votingBox.style.display = 'block';
+    closedBox.style.display = 'none';
+    attachVoteButtons();
+    checkIfAlreadyVoted();
+    return;
+  }
+
+  if(activeVotingData.status === 'closed'){
+    votingBox.style.display = 'none';
+    closedBox.style.display = 'block';
+    showResults();
+    return;
+  }
+}
+
+function attachVoteButtons(){
+  btnFor.onclick = ()=>submitVote('ZA');
+  btnAgainst.onclick = ()=>submitVote('PRZECIW');
+  btnAbstain.onclick = ()=>submitVote('WSTRZYMANIE');
+}
+
+async function submitVote(choice){
+  if(activeVotingData.status !== 'voting'){
+    voteResult.textContent = 'Głosowanie zakończone.';
+    return;
+  }
+
+  const name = (displayNameInput.value || '').trim();
+  if(!name){
+    voteResult.textContent = 'Podaj imię.';
+    return;
+  }
+
+  const ref = db.collection('votings').doc(activeVotingId).collection('votes').doc(uid);
+
+  try{
+    await ref.set({
+      choice,
+      displayName: name,
+      ts: new Date().toISOString()
+    });
+
+    voteResult.textContent = 'Głos oddany.';
+    btnFor.disabled = true;
+    btnAgainst.disabled = true;
+    btnAbstain.disabled = true;
+  }catch(e){
+    voteResult.textContent = 'Nie można oddać głosu: ' + e.message;
+  }
+}
+
+async function checkIfAlreadyVoted(){
+  const ref = db.collection('votings').doc(activeVotingId).collection('votes').doc(uid);
+  const doc = await ref.get();
+  if(doc.exists){
+    const v = doc.data();
+    voteResult.textContent = 'Głos oddany: ' + v.choice;
+    btnFor.disabled = true;
+    btnAgainst.disabled = true;
+    btnAbstain.disabled = true;
+  }
+}
+
+async function showResults(){
+  const snap = await db.collection('votings').doc(activeVotingId).collection('votes').get();
+
+  let counts = { ZA:0, PRZECIW:0, WSTRZYMANIE:0 };
+  let list = [];
+
+  snap.forEach(doc=>{
+    const v = doc.data();
+    counts[v.choice]++;
+    list.push(v);
+  });
+
+  const total = counts.ZA + counts.PRZECIW + counts.WSTRZYMANIE;
+
+  countsDiv.innerHTML = `
+    ZA: ${counts.ZA}<br>
+    PRZECIW: ${counts.PRZECIW}<br>
+    WSTRZYMANIE: ${counts.WSTRZYMANIE}<br>
+    Łącznie: ${total}
+  `;
+
+  percentagesDiv.textContent = total ? 
+    `ZA: ${Math.round(counts.ZA/total*100)}% — PRZECIW: ${Math.round(counts.PRZECIW/total*100)}% — WSTRZYMANIE: ${Math.round(counts.WSTRZYMANIE/total*100)}%`
+    : '';
+
+  list.sort((a,b)=> (b.ts||'').localeCompare(a.ts||''));
+  recentDiv.innerHTML = list.map(v=>`${v.displayName} — <b>${v.choice}</b>`).join('<br>');
+}
