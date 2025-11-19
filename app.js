@@ -6,14 +6,14 @@ if (typeof firebase === 'undefined') {
 // <-- WSTAW_FIREBASE_CONFIG_TUTAJ -->
 // Przykład:
 const firebaseConfig = {
-  apiKey: "AIzaSyDrH70P_t7GEpfaFPISF9PmZu4TwhtmOTI",
+apiKey: "AIzaSyDrH70P_t7GEpfaFPISF9PmZu4TwhtmOTI",
   authDomain: "vote2-6e553.firebaseapp.com",
   projectId: "vote2-6e553",
   storageBucket: "vote2-6e553.firebasestorage.app",
   messagingSenderId: "426318102620",
-  appId: "1:426318102620:web:e4b39f2f5f87dc34fd6699"
-},
-
+  appId: "1:426318102620:web:e4b39f2f5f87dc34fd6699",
+  measurementId: "G-7N5F3QPNLG"
+};
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
