@@ -4,14 +4,15 @@ if (typeof firebase === 'undefined'){
 }
 
 const firebaseConfig = {
-apiKey: "AIzaSyDrH70P_t7GEpfaFPISF9PmZu4TwhtmOTI",
+  apiKey: "AIzaSyDrH70P_t7GEpfaFPISF9PmZu4TwhtmOTI",
   authDomain: "vote2-6e553.firebaseapp.com",
   projectId: "vote2-6e553",
   storageBucket: "vote2-6e553.firebasestorage.app",
   messagingSenderId: "426318102620",
   appId: "1:426318102620:web:e4b39f2f5f87dc34fd6699",
-  measurementId: "G-7N5F3QPNLG"  // opcjonalne, możesz zostawić
+  measurementId: "G-7N5F3QPNLG"
 };
+
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
@@ -54,9 +55,10 @@ btnCreate.onclick = async () => {
   await db.collection('votings').add({
     title,
     description: desc,
-    status: 'active',
+    status: 'draft', // NOWY STATUS
     created: new Date().toISOString()
   });
+
   document.getElementById('new-title').value = '';
   document.getElementById('new-desc').value = '';
   loadVotings();
@@ -65,57 +67,80 @@ btnCreate.onclick = async () => {
 async function loadVotings(){
   const snap = await db.collection('votings').orderBy('created','desc').get();
   votingsList.innerHTML = '';
+
   snap.forEach(doc=>{
     const d = doc.data();
     const id = doc.id;
     const div = document.createElement('div');
     div.className = 'box';
+
     div.innerHTML = `
-      <b>${d.title}</b><br><small class="small">${d.description || ''}</small><br>
+      <b>${d.title}</b><br>
+      <small class="small">${d.description || ''}</small><br>
       Status: <b>${d.status}</b><br>
-      <button data-id="${id}" class="btn-close">${d.status==='active' ? 'Zamknij' : 'Otwórz'}</button>
+
+      ${
+        d.status === 'draft'
+          ? `<button data-id="${id}" class="btn-start">Rozpocznij głosowanie</button>`
+          : d.status === 'voting'
+            ? `<button data-id="${id}" class="btn-stop">Zakończ głosowanie</button>`
+            : ''
+      }
+
       <button data-id="${id}" class="btn-delete">Usuń</button>
-      <button data-id="${id}" class="btn-show">Pokaż głosy</button>
+      <button data-id="${id}" class="btn-show">Podgląd głosów (LIVE)</button>
+
       <div id="votes-${id}" style="margin-top:8px;"></div>
     `;
     votingsList.appendChild(div);
   });
 
-  // attach handlers
-  document.querySelectorAll('.btn-close').forEach(b=>{
-    b.onclick = async (e)=>{
+  document.querySelectorAll('.btn-start').forEach(b=>{
+    b.onclick = async e=>{
       const id = e.currentTarget.dataset.id;
-      const cur = (await db.collection('votings').doc(id).get()).data();
-      const next = cur.status === 'active' ? 'closed' : 'active';
-      await db.collection('votings').doc(id).update({ status: next });
+      await db.collection('votings').doc(id).update({ status: 'voting' });
       loadVotings();
     };
   });
-  document.querySelectorAll('.btn-delete').forEach(b=>{
-    b.onclick = async (e)=>{
+
+  document.querySelectorAll('.btn-stop').forEach(b=>{
+    b.onclick = async e=>{
       const id = e.currentTarget.dataset.id;
-      if(!confirm('Usunąć sprawę i wszystkie głosy?')) return;
-      // usuń subkolekcję votes — Firestore nie pozwala na masowe usuwanie bez funkcji, usuniemy dokument główny (subkolekcje pozostają)
-      // lepiej: pozostawiamy dokument i oznaczamy usunięty. Dla demo usuniemy dokument:
+      await db.collection('votings').doc(id).update({ status: 'closed' });
+      loadVotings();
+    };
+  });
+
+  document.querySelectorAll('.btn-delete').forEach(b=>{
+    b.onclick = async e=>{
+      const id = e.currentTarget.dataset.id;
+      if(!confirm('Usunąć sprawę?')) return;
       await db.collection('votings').doc(id).delete();
       loadVotings();
     };
   });
+
   document.querySelectorAll('.btn-show').forEach(b=>{
-    b.onclick = async (e)=>{
+    b.onclick = e=>{
       const id = e.currentTarget.dataset.id;
       const box = document.getElementById('votes-'+id);
-      box.innerHTML = 'Ładowanie...';
-      const snap = await db.collection('votings').doc(id).collection('votes').get();
-      if(snap.empty){ box.innerHTML = 'Brak głosów'; return; }
-      let html = '<ul>';
-      snap.forEach(d=>{
-        const v = d.data();
-        html += `<li>${v.displayName || '—'} — ${v.choice} — ${v.ts || ''}</li>`;
-      });
-      html += '</ul>';
-      box.innerHTML = html;
+      box.innerHTML = 'Ładowanie…';
+
+      db.collection('votings').doc(id).collection('votes')
+        .orderBy('ts','desc')
+        .onSnapshot(snap=>{
+          if(snap.empty){
+            box.innerHTML = 'Brak głosów';
+            return;
+          }
+          let html = '<ul>';
+          snap.forEach(d=>{
+            const v = d.data();
+            html += `<li><b>${v.displayName||'—'}</b> — ${v.choice}</li>`;
+          });
+          html += '</ul>';
+          box.innerHTML = html;
+        });
     };
   });
 }
-
