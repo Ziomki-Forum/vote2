@@ -5,14 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Głosowanie (anonimowe)</title>
   <link rel="stylesheet" href="style.css"/>
-  <!-- Firebase compat (CDN) -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
   <div class="container">
-    <header><h1>Głosowanie — demo (anonimowo)</h1></header>
+    <header><h1>Głosowanie — demo</h1></header>
 
     <section id="voting-area">
       <p id="status">Ładowanie…</p>
@@ -21,7 +20,7 @@
         <h2 id="voting-title"></h2>
         <p id="voting-desc"></p>
 
-        <label>Podaj imię / identyfikator (widoczne tylko dla admina):</label>
+        <label>Podaj imię / identyfikator:</label>
         <input id="display-name" placeholder="np. Jan Kowalski"/>
 
         <div class="buttons">
@@ -36,15 +35,14 @@
         <h2>Wyniki głosowania</h2>
         <div id="counts"></div>
         <div id="percentages" class="muted"></div>
-        <h3>Ostatnie (do 20)</h3>
+        <h3>Ostatnie</h3>
         <div id="recent"></div>
       </div>
     </section>
 
-    <footer><small>Głosowanie anonimiowe — demo.</small></footer>
+    <footer><small>Głosowanie demo.</small></footer>
   </div>
 
   <script src="app.js"></script>
 </body>
 </html>
-
