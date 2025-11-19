@@ -48,7 +48,7 @@ auth.onAuthStateChanged(async user=>{
 });
 
 async function loadActiveVoting(){
-  const snap = await db.collection('votings').where('status','==','voting').limit(1).get();
+  const snap = await db.collection('votings').where('status','==','active').limit(1).get();
   if(snap.empty){
     statusEl.textContent = 'Brak aktywnego głosowania.';
     votingBox.style.display = 'none';
@@ -62,16 +62,22 @@ async function loadActiveVoting(){
   votingTitle.textContent = activeVotingData.title || 'Bez tytułu';
   votingDesc.textContent = activeVotingData.description || '';
 
-  votingBox.style.display = 'block';
-  closedBox.style.display = 'none';
-  attachVoteButtons();
-  checkIfAlreadyVoted();
+  if(activeVotingData.status === 'active'){
+    votingBox.style.display = 'block';
+    closedBox.style.display = 'none';
+    attachVoteButtons();
+    checkIfAlreadyVoted();
+  } else {
+    votingBox.style.display = 'none';
+    closedBox.style.display = 'block';
+    showResults();
+  }
 }
 
 function attachVoteButtons(){
-  btnFor.onclick = ()=>submitVote('ZA');
-  btnAgainst.onclick = ()=>submitVote('PRZECIW');
-  btnAbstain.onclick = ()=>submitVote('WSTRZYMANIE');
+  btnFor.onclick = ()=>submitVote('for');
+  btnAgainst.onclick = ()=>submitVote('against');
+  btnAbstain.onclick = ()=>submitVote('abstain');
 }
 
 async function submitVote(choice){
@@ -105,24 +111,26 @@ async function showResults(){
   if(!activeVotingId) return;
   const snap = await db.collection('votings').doc(activeVotingId).collection('votes').get();
 
-  let counts = { ZA:0, PRZECIW:0, WSTRZYMANIE:0 };
+  let counts = { for:0, against:0, abstain:0 };
+  const recent = [];
   snap.forEach(d=>{
     const v = d.data();
-    if(v.choice === 'ZA') counts.ZA++;
-    else if(v.choice === 'PRZECIW') counts.PRZECIW++;
-    else if(v.choice === 'WSTRZYMANIE') counts.WSTRZYMANIE++;
+    if(v.choice === 'for') counts.for++;
+    else if(v.choice === 'against') counts.against++;
+    else if(v.choice === 'abstain') counts.abstain++;
+    recent.push(v);
   });
 
-  const total = counts.ZA + counts.PRZECIW + counts.WSTRZYMANIE;
+  const total = counts.for + counts.against + counts.abstain;
   countsDiv.innerHTML = `
-    ZA: ${counts.ZA}<br>
-    PRZECIW: ${counts.PRZECIW}<br>
-    WSTRZYMAŁO SIĘ: ${counts.WSTRZYMANIE}<br>
+    ZA: ${counts.for}<br>
+    PRZECIW: ${counts.against}<br>
+    WSTRZYMAŁO SIĘ: ${counts.abstain}<br>
     Łącznie: ${total}
   `;
   percentagesDiv.textContent = total ? 
-    `ZA: ${Math.round(counts.ZA/total*100)}% — PRZECIW: ${Math.round(counts.PRZECIW/total*100)}% — WSTRZYMAŁO SIĘ: ${Math.round(counts.WSTRZYMANIE/total*100)}%` : '';
+    `ZA: ${Math.round(counts.for/total*100)}% — PRZECIW: ${Math.round(counts.against/total*100)}% — WSTRZYMAŁO SIĘ: ${Math.round(counts.abstain/total*100)}%` : '';
 
-  // Usuń listę szczegółowych głosów
-  recentDiv.innerHTML = '';
+  recent.sort((a,b)=> (b.ts||'').localeCompare(a.ts||''));
+  recentDiv.innerHTML = recent.slice(0,20).map(v => `${v.displayName||'—'} — ${v.choice} — ${v.ts ? new Date(v.ts).toLocaleString() : ''}`).join('<br>');
 }
