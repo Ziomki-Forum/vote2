@@ -5,7 +5,7 @@
   <title>Głosowanie</title>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, query, where, onSnapshot } 
+    import { getFirestore, collection, query, where, onSnapshot, addDoc } 
       from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -22,6 +22,20 @@
     const db = getFirestore(app);
 
     let currentVotingId = null;
+    let userNick = null;
+
+    function showVotingBox() {
+      document.getElementById("identifierBox").style.display = "none";
+      document.getElementById("voteBox").style.display = "block";
+    }
+
+    window.setIdentifier = () => {
+      const nick = document.getElementById("nameInput").value.trim();
+      if (!nick) return alert("Podaj identyfikator/nick");
+      userNick = nick;
+      showVotingBox();
+      loadActiveVoting();
+    };
 
     async function loadActiveVoting() {
       const q = query(collection(db, "votings"), where("status", "==", "voting"));
@@ -34,39 +48,39 @@
         snapshot.forEach((docSnap) => {
           currentVotingId = docSnap.id;
           const data = docSnap.data();
-          document.getElementById("topic").innerText = data.topic;
-          voteBox.style.display = "block";
+          document.getElementById("topic").innerText = data.topic || data.title || "Brak tytułu";
         });
       });
     }
 
     window.submitVote = async (choice) => {
-      const name = document.getElementById("nameInput").value.trim();
-      if (!name) return alert("Podaj identyfikator/nick");
-
       if (!currentVotingId) return alert("Brak aktywnego głosowania.");
 
       await addDoc(collection(db, "votings", currentVotingId, "votes"), {
-        name: name,
+        name: userNick,
         vote: choice,
         timestamp: Date.now()
       });
 
       document.getElementById("voteBox").innerHTML = "<h3>Dziękujemy, oddano głos.</h3>";
     };
-
-    loadActiveVoting();
   </script>
   <style>
     body { font-family: Arial; padding: 20px; }
-    button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+    input, button { padding: 10px 15px; margin: 5px; }
+    #voteBox { display: none; }
   </style>
 </head>
 <body>
-  <h1 id="topic">Ładowanie aktywnego głosowania...</h1>
+  <h1>Głosowanie</h1>
+
+  <div id="identifierBox">
+    <input type="text" id="nameInput" placeholder="Podaj swój identyfikator/nick" />
+    <button onclick="setIdentifier()">Dalej</button>
+  </div>
 
   <div id="voteBox">
-    <input type="text" id="nameInput" placeholder="Podaj swój identyfikator/nick"/>
+    <h2 id="topic">Ładowanie głosowania...</h2>
     <div>
       <button onclick="submitVote('ZA')">ZA</button>
       <button onclick="submitVote('PRZECIW')">PRZECIW</button>
