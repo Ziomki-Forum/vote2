@@ -1,77 +1,62 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Wyniki głosowań</title>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <meta charset="UTF-8">
+  <title>Wyniki głosowania</title>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getFirestore, collection, query, where, onSnapshot } 
+      from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
+    const firebaseConfig = {
+      apiKey: "AIzaSyDrH70P_t7GEpfaFPISF9PmZu4TwhtmOTI",
+      authDomain: "vote2-6e553.firebaseapp.com",
+      projectId: "vote2-6e553",
+      storageBucket: "vote2-6e553.firebasestorage.app",
+      messagingSenderId: "426318102620",
+      appId: "1:426318102620:web:e4b39f2f5f87dc34fd6699",
+      measurementId: "G-7N5F3QPNLG"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    async function loadLastClosedVoting() {
+      const q = query(collection(db, "votings"), where("status", "==", "closed"));
+      onSnapshot(q, (snapshot) => {
+        if (snapshot.empty) {
+          document.getElementById("results").innerHTML = "Brak zakończonych głosowań";
+          return;
+        }
+        let lastVoting = snapshot.docs[snapshot.docs.length-1];
+        let counts = { ZA: 0, PRZECIW: 0, WSTRZYMUJĘ: 0 };
+
+        onSnapshot(collection(db, "votings", lastVoting.id, "votes"), (votesSnap) => {
+          votesSnap.forEach((doc) => {
+            const v = doc.data();
+            counts[v.vote] = (counts[v.vote] || 0) + 1;
+          });
+          const total = counts.ZA + counts.PRZECIW + counts.WSTRZYMUJĘ;
+          document.getElementById("results").innerHTML = `
+            <h2>${lastVoting.data().topic}</h2>
+            <p>ZA: ${counts.ZA}</p>
+            <p>PRZECIW: ${counts.PRZECIW}</p>
+            <p>WSTRZYMUJĘ SIĘ: ${counts.WSTRZYMUJĘ}</p>
+            <p>Łącznie: ${total}</p>
+            <p>Procenty: ZA ${total?Math.round(counts.ZA/total*100):0}%, PRZECIW ${total?Math.round(counts.PRZECIW/total*100):0}%, WSTRZYMUJĘ SIĘ ${total?Math.round(counts.WSTRZYMUJĘ/total*100):0}%</p>
+          `;
+        });
+      });
+    }
+
+    loadLastClosedVoting();
+  </script>
   <style>
-    body { font-family: system-ui; background:#f5f7fb; padding:20px; }
-    .box { background:#fff; padding:16px; border-radius:8px; margin-bottom:12px; }
+    body { font-family: Arial; padding: 20px; }
   </style>
 </head>
 <body>
-
-<h1>Wyniki wszystkich głosowań</h1>
-<div id="list">Ładowanie…</div>
-
-<script>
-const firebaseConfig = {
-  apiKey: "AIzaSyDrH70P_t7GEpfaFPISF9PmZu4TwhtmOTI",
-  authDomain: "vote2-6e553.firebaseapp.com",
-  projectId: "vote2-6e553",
-  storageBucket: "vote2-6e553.firebasestorage.app",
-  messagingSenderId: "426318102620",
-  appId: "1:426318102620:web:e4b39f2f5f87dc34fd6699",
-  measurementId: "G-7N5F3QPNLG"
-};
-
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-
-load();
-
-async function load(){
-  const box = document.getElementById('list');
-
-  const snap = await db.collection('votings').orderBy('created','desc').get();
-  if (snap.empty){
-    box.textContent = "Brak głosowań.";
-    return;
-  }
-
-  box.innerHTML = "";
-
-  snap.forEach(async doc=>{
-    const d = doc.data();
-    const id = doc.id;
-
-    const votes = await db.collection('votings').doc(id).collection('votes').get();
-
-    let counts = { ZA:0, PRZECIW:0, WSTRZYMANIE:0 };
-    votes.forEach(v=> counts[v.data().choice]++ );
-
-    const total = counts.ZA + counts.PRZECIW + counts.PRZECIW + counts.WSTRZYMANIE;
-
-    const div = document.createElement('div');
-    div.className = "box";
-
-    div.innerHTML = `
-      <h2>${d.title}</h2>
-      <p>${d.description || ''}</p>
-      <b>ZA:</b> ${counts.ZA}<br>
-      <b>PRZECIW:</b> ${counts.PRZECIW}<br>
-      <b>WSTRZYMANIE:</b> ${counts.WSTRZYMANIE}<br><br>
-      <b>Status:</b> ${d.status}
-    `;
-
-    box.appendChild(div);
-  });
-}
-</script>
-
+  <h1>Wyniki ostatniego głosowania</h1>
+  <div id="results">Ładowanie…</div>
 </body>
 </html>
