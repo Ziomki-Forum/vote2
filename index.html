@@ -1,43 +1,77 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Głosowanie (anonimowe)</title>
-  <link rel="stylesheet" href="style.css"/>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <meta charset="UTF-8" />
+  <title>Głosowanie</title>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, query, where, onSnapshot } 
+      from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDrH70P_t7GEpfaFPISF9PmZu4TwhtmOTI",
+      authDomain: "vote2-6e553.firebaseapp.com",
+      projectId: "vote2-6e553",
+      storageBucket: "vote2-6e553.firebasestorage.app",
+      messagingSenderId: "426318102620",
+      appId: "1:426318102620:web:e4b39f2f5f87dc34fd6699",
+      measurementId: "G-7N5F3QPNLG"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let currentVotingId = null;
+
+    async function loadActiveVoting() {
+      const q = query(collection(db, "votings"), where("status", "==", "voting"));
+      onSnapshot(q, (snapshot) => {
+        const voteBox = document.getElementById("voteBox");
+        if (snapshot.empty) {
+          voteBox.innerHTML = "<h2>Brak aktywnego głosowania.</h2>";
+          return;
+        }
+        snapshot.forEach((docSnap) => {
+          currentVotingId = docSnap.id;
+          const data = docSnap.data();
+          document.getElementById("topic").innerText = data.topic;
+          voteBox.style.display = "block";
+        });
+      });
+    }
+
+    window.submitVote = async (choice) => {
+      const name = document.getElementById("nameInput").value.trim();
+      if (!name) return alert("Podaj identyfikator/nick");
+
+      if (!currentVotingId) return alert("Brak aktywnego głosowania.");
+
+      await addDoc(collection(db, "votings", currentVotingId, "votes"), {
+        name: name,
+        vote: choice,
+        timestamp: Date.now()
+      });
+
+      document.getElementById("voteBox").innerHTML = "<h3>Dziękujemy, oddano głos.</h3>";
+    };
+
+    loadActiveVoting();
+  </script>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+  </style>
 </head>
 <body>
-  <div class="container">
-    <header><h1>Głosowanie — demo</h1></header>
+  <h1 id="topic">Ładowanie aktywnego głosowania...</h1>
 
-    <section id="voting-area">
-      <p id="status">Ładowanie…</p>
-
-      <div id="voting-box" style="display:none;">
-        <h2 id="voting-title"></h2>
-        <p id="voting-desc"></p>
-
-        <div class="buttons">
-          <button id="btn-for">ZA</button>
-          <button id="btn-against">PRZECIW</button>
-          <button id="btn-abstain">WSTRZYMAJ SIĘ</button>
-        </div>
-        <p id="vote-result" class="muted"></p>
-      </div>
-
-      <div id="closed-box" style="display:none;">
-        <h2>Wyniki głosowania</h2>
-        <div id="counts"></div>
-        <div id="percentages" class="muted"></div>
-      </div>
-    </section>
-
-    <footer><small>Głosowanie demo.</small></footer>
+  <div id="voteBox">
+    <input type="text" id="nameInput" placeholder="Podaj swój identyfikator/nick"/>
+    <div>
+      <button onclick="submitVote('ZA')">ZA</button>
+      <button onclick="submitVote('PRZECIW')">PRZECIW</button>
+      <button onclick="submitVote('WSTRZYMUJĘ SIĘ')">WSTRZYMUJĘ SIĘ</button>
+    </div>
   </div>
-
-  <script src="app.js"></script>
 </body>
 </html>
