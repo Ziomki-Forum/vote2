@@ -28,6 +28,7 @@ const btnAbstain = document.getElementById('btn-abstain');
 const voteResult = document.getElementById('vote-result');
 const countsDiv = document.getElementById('counts');
 const percentagesDiv = document.getElementById('percentages');
+const recentDiv = document.getElementById('recent');
 
 let uid = null;
 let activeVotingId = null;
@@ -109,7 +110,9 @@ async function submitVote(choice){
     });
 
     voteResult.textContent = 'Głos oddany.';
-    disableButtons();
+    btnFor.disabled = true;
+    btnAgainst.disabled = true;
+    btnAbstain.disabled = true;
   }catch(e){
     voteResult.textContent = 'Nie można oddać głosu: ' + e.message;
   }
@@ -121,24 +124,22 @@ async function checkIfAlreadyVoted(){
   if(doc.exists){
     const v = doc.data();
     voteResult.textContent = 'Głos oddany: ' + v.choice;
-    disableButtons();
+    btnFor.disabled = true;
+    btnAgainst.disabled = true;
+    btnAbstain.disabled = true;
   }
-}
-
-function disableButtons(){
-  btnFor.disabled = true;
-  btnAgainst.disabled = true;
-  btnAbstain.disabled = true;
 }
 
 async function showResults(){
   const snap = await db.collection('votings').doc(activeVotingId).collection('votes').get();
 
   let counts = { ZA:0, PRZECIW:0, WSTRZYMANIE:0 };
+  let list = [];
 
   snap.forEach(doc=>{
     const v = doc.data();
     counts[v.choice]++;
+    list.push(v);
   });
 
   const total = counts.ZA + counts.PRZECIW + counts.WSTRZYMANIE;
@@ -153,4 +154,7 @@ async function showResults(){
   percentagesDiv.textContent = total ? 
     `ZA: ${Math.round(counts.ZA/total*100)}% — PRZECIW: ${Math.round(counts.PRZECIW/total*100)}% — WSTRZYMANIE: ${Math.round(counts.WSTRZYMANIE/total*100)}%`
     : '';
+
+  list.sort((a,b)=> (b.ts||'').localeCompare(a.ts||''));
+  recentDiv.innerHTML = list.map(v=>`${v.displayName} — <b>${v.choice}</b>`).join('<br>');
 }
