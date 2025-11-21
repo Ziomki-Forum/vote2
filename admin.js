@@ -1,4 +1,3 @@
-// admin.js (compat)
 if (typeof firebase === 'undefined'){
   alert('Błąd: Firebase SDK nie załadowane');
 }
