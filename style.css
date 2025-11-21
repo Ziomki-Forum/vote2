@@ -4,6 +4,4 @@ body{font-family:system-ui,Arial; background:#f5f7fb; margin:0; padding:20px;}
 button{padding:12px 16px;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer;font-weight:600;}
 #counts{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;font-weight:700;}
 .muted{color:#666;}
-input,textarea{padding:8px;width:100%;margin-top:6px;border-radius:6px;border:1px solid #ddd;}
-.box{background:#fff;padding:12px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.06);margin-bottom:12px;}
-.small{font-size:0.9rem;color:#666;}
+input{padding:8px;width:100%;margin-top:6px;border-radius:6px;border:1px solid #ddd;}
