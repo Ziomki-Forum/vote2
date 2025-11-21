@@ -44,6 +44,7 @@ auth.onAuthStateChanged(async user=>{
   uid = user.uid;
   statusEl.textContent = 'Połączono';
   await loadActiveVoting();
+  await loadPastVotings();
 });
 
 async function loadActiveVoting(){
