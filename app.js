@@ -1,161 +1,127 @@
-// app.js
-if (typeof firebase === 'undefined') {
-  document.getElementById('status').textContent = 'Błąd ładowania Firebase SDK.';
-}
-
+// app.js — kompatybilny (compat)
 const firebaseConfig = {
   apiKey: "AIzaSyDrH70P_t7GEpfaFPISF9PmZu4TwhtmOTI",
   authDomain: "vote2-6e553.firebaseapp.com",
-  projectId: "vote2-6e553",
-  storageBucket: "vote2-6e553.firebasestorage.app",
-  messagingSenderId: "426318102620",
-  appId: "1:426318102620:web:e4b39f2f5f87dc34fd6699",
-  measurementId: "G-7N5F3QPNLG"
+  projectId: "vote2-6e553"
 };
 
 firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
 const db = firebase.firestore();
 
-const statusEl = document.getElementById('status');
-const votingBox = document.getElementById('voting-box');
-const closedBox = document.getElementById('closed-box');
-const votingTitle = document.getElementById('voting-title');
-const votingDesc = document.getElementById('voting-desc');
-const displayNameInput = document.getElementById('display-name');
-const btnFor = document.getElementById('btn-for');
-const btnAgainst = document.getElementById('btn-against');
-const btnAbstain = document.getElementById('btn-abstain');
-const voteResult = document.getElementById('vote-result');
-const countsDiv = document.getElementById('counts');
-const percentagesDiv = document.getElementById('percentages');
-const recentDiv = document.getElementById('recent');
+const identBox = document.getElementById("ident-box");
+const voteBox = document.getElementById("vote-box");
+const resultsBox = document.getElementById("results-box");
 
-let uid = null;
-let activeVotingId = null;
-let activeVotingData = null;
+const btnIdent = document.getElementById("btn-ident");
+const voterNameInput = document.getElementById("voter-name");
 
-auth.signInAnonymously().catch(err=>{
-  statusEl.textContent = 'Błąd anon. logowania: ' + err.message;
-});
+const voteTitle = document.getElementById("vote-title");
+const voteDesc = document.getElementById("vote-desc");
+const statusMsg = document.getElementById("status-msg");
 
-auth.onAuthStateChanged(async user=>{
-  if(!user) return;
-  uid = user.uid;
-  statusEl.textContent = 'Połączono';
-  await loadActiveVoting();
-});
+const resultsContent = document.getElementById("results-content");
 
-async function loadActiveVoting(){
-  const snap = await db.collection('votings').where('status','in',['draft','voting','closed']).limit(1).get();
-  if(snap.empty){
-    statusEl.textContent = 'Brak aktywnego głosowania.';
+// ----------------------------------------------------------
+// KROK 1: IDENTYFIKATOR
+// ----------------------------------------------------------
+btnIdent.onclick = () => {
+  const name = voterNameInput.value.trim();
+  if (!name) {
+    alert("Podaj identyfikator.");
     return;
   }
 
-  const doc = snap.docs[0];
-  activeVotingId = doc.id;
-  activeVotingData = doc.data();
+  localStorage.setItem("voterName", name);
 
-  votingTitle.textContent = activeVotingData.title;
-  votingDesc.textContent = activeVotingData.description;
+  identBox.style.display = "none";
+  loadVotingScreen();
+};
 
-  if(activeVotingData.status === 'draft'){
-    statusEl.textContent = "Głosowanie jeszcze się nie rozpoczęło.";
-    votingBox.style.display = 'none';
-    closedBox.style.display = 'none';
+// ----------------------------------------------------------
+// KROK 2: Załaduj dane głosowania (po wpisaniu identyfikatora)
+// ----------------------------------------------------------
+async function loadVotingScreen() {
+  const snap = await db.collection("votings").get();
+  if (snap.empty) {
+    voteBox.innerHTML = "<h3>Brak aktywnego głosowania.</h3>";
+    voteBox.style.display = "block";
     return;
   }
 
-  if(activeVotingData.status === 'voting'){
-    votingBox.style.display = 'block';
-    closedBox.style.display = 'none';
-    attachVoteButtons();
-    checkIfAlreadyVoted();
+  const v = snap.docs[0];
+  const data = v.data();
+  const votingId = v.id;
+
+  voteTitle.textContent = data.title;
+  voteDesc.textContent = data.desc;
+
+  // jeśli zamknięte — pokaż wyniki
+  if (data.status === "closed") {
+    voteBox.style.display = "none";
+    showResults(votingId);
     return;
   }
 
-  if(activeVotingData.status === 'closed'){
-    votingBox.style.display = 'none';
-    closedBox.style.display = 'block';
-    showResults();
-    return;
-  }
+  voteBox.style.display = "block";
+
+  document.getElementById("btn-for").onclick = () => sendVote(votingId, "for");
+  document.getElementById("btn-against").onclick = () => sendVote(votingId, "against");
+  document.getElementById("btn-abstain").onclick = () => sendVote(votingId, "abstain");
 }
 
-function attachVoteButtons(){
-  btnFor.onclick = ()=>submitVote('ZA');
-  btnAgainst.onclick = ()=>submitVote('PRZECIW');
-  btnAbstain.onclick = ()=>submitVote('WSTRZYMANIE');
-}
-
-async function submitVote(choice){
-  if(activeVotingData.status !== 'voting'){
-    voteResult.textContent = 'Głosowanie zakończone.';
+// ----------------------------------------------------------
+// KROK 3: Wysyłanie głosu
+// ----------------------------------------------------------
+async function sendVote(votingId, choice) {
+  const name = localStorage.getItem("voterName");
+  if (!name) {
+    alert("Brak identyfikatora!");
     return;
   }
 
-  const name = (displayNameInput.value || '').trim();
-  if(!name){
-    voteResult.textContent = 'Podaj imię.';
-    return;
-  }
+  // nie używamy Firebase Auth — tworzymy UID z nazwy
+  const uid = "user_" + name.replace(/[^a-zA-Z0-9]/g, "");
 
-  const ref = db.collection('votings').doc(activeVotingId).collection('votes').doc(uid);
-
-  try{
-    await ref.set({
-      choice,
-      displayName: name,
-      ts: new Date().toISOString()
+  await db
+    .collection("votings")
+    .doc(votingId)
+    .collection("votes")
+    .doc(uid)
+    .set({
+      choice: choice,
+      ts: Date.now(),
+      name: name   // widoczne tylko dla admina
     });
 
-    voteResult.textContent = 'Głos oddany.';
-    btnFor.disabled = true;
-    btnAgainst.disabled = true;
-    btnAbstain.disabled = true;
-  }catch(e){
-    voteResult.textContent = 'Nie można oddać głosu: ' + e.message;
-  }
+  statusMsg.textContent = "Głos zapisano. Dziękujemy!";
 }
 
-async function checkIfAlreadyVoted(){
-  const ref = db.collection('votings').doc(activeVotingId).collection('votes').doc(uid);
-  const doc = await ref.get();
-  if(doc.exists){
-    const v = doc.data();
-    voteResult.textContent = 'Głos oddany: ' + v.choice;
-    btnFor.disabled = true;
-    btnAgainst.disabled = true;
-    btnAbstain.disabled = true;
-  }
-}
+// ----------------------------------------------------------
+// KROK 4: Wyświetlanie wyników (dla użytkowników tylko suma)
+// ----------------------------------------------------------
+async function showResults(votingId) {
+  resultsBox.style.display = "block";
 
-async function showResults(){
-  const snap = await db.collection('votings').doc(activeVotingId).collection('votes').get();
+  const snap = await db
+    .collection("votings")
+    .doc(votingId)
+    .collection("votes")
+    .get();
 
-  let counts = { ZA:0, PRZECIW:0, WSTRZYMANIE:0 };
-  let list = [];
+  let forC = 0;
+  let againstC = 0;
+  let abstainC = 0;
 
-  snap.forEach(doc=>{
-    const v = doc.data();
-    counts[v.choice]++;
-    list.push(v);
+  snap.forEach(doc => {
+    const d = doc.data();
+    if (d.choice === "for") forC++;
+    if (d.choice === "against") againstC++;
+    if (d.choice === "abstain") abstainC++;
   });
 
-  const total = counts.ZA + counts.PRZECIW + counts.WSTRZYMANIE;
-
-  countsDiv.innerHTML = `
-    ZA: ${counts.ZA}<br>
-    PRZECIW: ${counts.PRZECIW}<br>
-    WSTRZYMANIE: ${counts.WSTRZYMANIE}<br>
-    Łącznie: ${total}
+  resultsContent.innerHTML = `
+    <p>ZA: <b>${forC}</b></p>
+    <p>PRZECIW: <b>${againstC}</b></p>
+    <p>WSTRZYMUJĘ SIĘ: <b>${abstainC}</b></p>
   `;
-
-  percentagesDiv.textContent = total ? 
-    `ZA: ${Math.round(counts.ZA/total*100)}% — PRZECIW: ${Math.round(counts.PRZECIW/total*100)}% — WSTRZYMANIE: ${Math.round(counts.WSTRZYMANIE/total*100)}%`
-    : '';
-
-  list.sort((a,b)=> (b.ts||'').localeCompare(a.ts||''));
-  recentDiv.innerHTML = list.map(v=>`${v.displayName} — <b>${v.choice}</b>`).join('<br>');
 }
