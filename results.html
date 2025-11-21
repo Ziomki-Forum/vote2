@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Wyniki głosowań</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    body { font-family: system-ui; background:#f5f7fb; padding:20px; }
+    .box { background:#fff; padding:16px; border-radius:8px; margin-bottom:12px; }
+  </style>
+</head>
+<body>
+
+<h1>Wyniki wszystkich głosowań</h1>
+<div id="list">Ładowanie…</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDrH70P_t7GEpfaFPISF9PmZu4TwhtmOTI",
+  authDomain: "vote2-6e553.firebaseapp.com",
+  projectId: "vote2-6e553",
+  storageBucket: "vote2-6e553.firebasestorage.app",
+  messagingSenderId: "426318102620",
+  appId: "1:426318102620:web:e4b39f2f5f87dc34fd6699",
+  measurementId: "G-7N5F3QPNLG"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+load();
+
+async function load(){
+  const box = document.getElementById('list');
+
+  const snap = await db.collection('votings').orderBy('created','desc').get();
+  if (snap.empty){
+    box.textContent = "Brak głosowań.";
+    return;
+  }
+
+  box.innerHTML = "";
+
+  snap.forEach(async doc=>{
+    const d = doc.data();
+    const id = doc.id;
+
+    const votes = await db.collection('votings').doc(id).collection('votes').get();
+
+    let counts = { ZA:0, PRZECIW:0, WSTRZYMANIE:0 };
+    votes.forEach(v=> counts[v.data().choice]++ );
+
+    const total = counts.ZA + counts.PRZECIW + counts.PRZECIW + counts.WSTRZYMANIE;
+
+    const div = document.createElement('div');
+    div.className = "box";
+
+    div.innerHTML = `
+      <h2>${d.title}</h2>
+      <p>${d.description || ''}</p>
+      <b>ZA:</b> ${counts.ZA}<br>
+      <b>PRZECIW:</b> ${counts.PRZECIW}<br>
+      <b>WSTRZYMANIE:</b> ${counts.WSTRZYMANIE}<br><br>
+      <b>Status:</b> ${d.status}
+    `;
+
+    box.appendChild(div);
+  });
+}
+</script>
+
+</body>
+</html>
