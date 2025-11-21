@@ -46,11 +46,57 @@ auth.onAuthStateChanged(async user=>{
 });
 
 async function loadActiveVoting(){
-  const snap = await db.collection('votings').where('status','in',['draft','voting','closed']).limit(1).get();
+  // 1️⃣ najpierw sprawdzamy głosowania w trakcie trwania
+  let snap = await db.collection('votings')
+    .where('status', '==', 'voting')
+    .orderBy('created', 'desc')
+    .limit(1)
+    .get();
+
+  // 2️⃣ jeśli nie ma żadnego w trakcie, sprawdzamy zakończone
+  if(snap.empty){
+    snap = await db.collection('votings')
+      .where('status', '==', 'closed')
+      .orderBy('created', 'desc')
+      .limit(1)
+      .get();
+  }
+
+  // 3️⃣ jeśli nadal pusto, brak aktywnego głosowania
   if(snap.empty){
     statusEl.textContent = 'Brak aktywnego głosowania.';
+    votingBox.style.display = 'none';
+    closedBox.style.display = 'none';
     return;
   }
+
+  // 4️⃣ ładowanie wybranego głosowania
+  const doc = snap.docs[0];
+  activeVotingId = doc.id;
+  activeVotingData = doc.data();
+
+  votingTitle.textContent = activeVotingData.title;
+  votingDesc.textContent = activeVotingData.description;
+
+  // wyświetlanie odpowiedniego widoku
+  if(activeVotingData.status === 'voting'){
+    statusEl.textContent = 'Głosowanie trwa';
+    votingBox.style.display = 'block';
+    closedBox.style.display = 'none';
+    attachVoteButtons();
+    checkIfAlreadyVoted();
+  } else if(activeVotingData.status === 'closed'){
+    statusEl.textContent = 'Głosowanie zakończone';
+    votingBox.style.display = 'none';
+    closedBox.style.display = 'block';
+    showResults();
+  } else {
+    // draft nie powinien się tu pojawić
+    statusEl.textContent = 'Brak aktywnego głosowania.';
+    votingBox.style.display = 'none';
+    closedBox.style.display = 'none';
+  }
+}
 
   const doc = snap.docs[0];
   activeVotingId = doc.id;
