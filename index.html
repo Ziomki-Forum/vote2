@@ -16,20 +16,12 @@
     <section id="voting-area">
       <p id="status">Ładowanie…</p>
 
-      <!-- EKRAN IDENTYFIKATORA -->
-      <div id="id-screen" style="display:none;">
-        <h2>Podaj swój identyfikator</h2>
-        <input id="id-input" placeholder="np. JanK / Gość12"/>
-        <button id="id-btn">Dalej</button>
-      </div>
-
-      <!-- LISTA SPRAW -->
-      <div id="votings-list" style="display:none;"></div>
-
-      <!-- WYBRANE GŁOSOWANIE -->
       <div id="voting-box" style="display:none;">
         <h2 id="voting-title"></h2>
         <p id="voting-desc"></p>
+
+        <label>Podaj imię / identyfikator:</label>
+        <input id="display-name" placeholder="np. Jan Kowalski"/>
 
         <div class="buttons">
           <button id="btn-for">ZA</button>
@@ -39,7 +31,6 @@
         <p id="vote-result" class="muted"></p>
       </div>
 
-      <!-- WYNIKI PO ZAKOŃCZENIU -->
       <div id="closed-box" style="display:none;">
         <h2>Wyniki głosowania</h2>
         <div id="counts"></div>
