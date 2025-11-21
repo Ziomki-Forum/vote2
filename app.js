@@ -1,4 +1,3 @@
-// app.js
 if (typeof firebase === 'undefined') {
   document.getElementById('status').textContent = 'Błąd ładowania Firebase SDK.';
 }
