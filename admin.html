@@ -7,32 +7,36 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-  <link rel="stylesheet" href="style.css"/>
+  <style>
+    body{font-family:system-ui;padding:20px;background:#f5f7fb;}
+    .box{background:#fff;padding:12px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.06);margin-bottom:12px;}
+    input,textarea{width:100%;padding:8px;margin-top:6px;border-radius:6px;border:1px solid #ddd;}
+    button{padding:8px 12px;margin-right:8px;}
+    .small{font-size:0.9rem;color:#666;}
+  </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Panel administratora</h1>
+  <h1>Panel administratora</h1>
 
-    <div id="login" class="box">
-      <h3>Logowanie</h3>
-      <input id="admin-email" placeholder="Email admina"/>
-      <input id="admin-pass" placeholder="Hasło" type="password"/>
-      <button id="btn-login">Zaloguj</button>
-      <span id="login-msg" class="small"></span>
+  <div id="login" class="box">
+    <h3>Logowanie</h3>
+    <input id="admin-email" placeholder="Email admina"/>
+    <input id="admin-pass" placeholder="Hasło" type="password"/>
+    <button id="btn-login">Zaloguj</button>
+    <span id="login-msg" class="small"></span>
+  </div>
+
+  <div id="panel" style="display:none;">
+    <div class="box">
+      <h3>Utwórz nową sprawę</h3>
+      <input id="new-title" placeholder="Tytuł sprawy"/>
+      <textarea id="new-desc" placeholder="Opis"></textarea>
+      <button id="btn-create">Utwórz sprawę</button>
     </div>
 
-    <div id="panel" style="display:none;">
-      <div class="box">
-        <h3>Utwórz nową sprawę</h3>
-        <input id="new-title" placeholder="Tytuł sprawy"/>
-        <textarea id="new-desc" placeholder="Opis"></textarea>
-        <button id="btn-create">Utwórz sprawę</button>
-      </div>
-
-      <div class="box">
-        <h3>Lista spraw</h3>
-        <div id="votings-list"></div>
-      </div>
+    <div class="box">
+      <h3>Lista spraw</h3>
+      <div id="votings-list"></div>
     </div>
   </div>
 
