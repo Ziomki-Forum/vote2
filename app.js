@@ -14,7 +14,6 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
 const db = firebase.firestore();
 
 const statusEl = document.getElementById('status');
@@ -31,34 +30,55 @@ const countsDiv = document.getElementById('counts');
 const percentagesDiv = document.getElementById('percentages');
 const recentDiv = document.getElementById('recent');
 
-let uid = null;
+let voterId = localStorage.getItem("voter-id");
+if (!voterId) {
+  voterId = "voter-" + Math.random().toString(36).substring(2, 12);
+  localStorage.setItem("voter-id", voterId);
+}
+
+// active voting state
 let activeVotingId = null;
 let activeVotingData = null;
 
-auth.signInAnonymously().catch(err=>{
-  statusEl.textContent = 'Błąd anon. logowania: ' + err.message;
-});
-
-auth.onAuthStateChanged(async user=>{
-  if(!user) return;
-  uid = user.uid;
-  statusEl.textContent = 'Połączono';
-  await loadActiveVoting();
-});
+statusEl.textContent = 'Łączenie z bazą…';
+loadActiveVoting();
 
 async function loadActiveVoting(){
-  const snap = await db.collection('votings').where('status','in',['draft','voting','closed']).limit(1).get();
-  if(snap.empty){
-    statusEl.textContent = 'Brak aktywnego głosowania.';
+  // Prefer 'voting' status. If none, show most recent 'closed'. If none, show 'draft' or none.
+  let snap = await db.collection('votings').where('status','==','voting').orderBy('created','desc').limit(1).get();
+  if(!snap.empty){
+    const doc = snap.docs[0];
+    setupActiveVoting(doc);
     return;
   }
 
-  const doc = snap.docs[0];
+  snap = await db.collection('votings').where('status','==','closed').orderBy('created','desc').limit(1).get();
+  if(!snap.empty){
+    const doc = snap.docs[0];
+    setupActiveVoting(doc);
+    return;
+  }
+
+  snap = await db.collection('votings').where('status','==','draft').orderBy('created','desc').limit(1).get();
+  if(!snap.empty){
+    const doc = snap.docs[0];
+    setupActiveVoting(doc);
+    return;
+  }
+
+  statusEl.textContent = 'Brak aktywnego głosowania.';
+  votingBox.style.display = 'none';
+  closedBox.style.display = 'none';
+  activeVotingId = null;
+  activeVotingData = null;
+}
+
+function setupActiveVoting(doc){
   activeVotingId = doc.id;
   activeVotingData = doc.data();
 
   votingTitle.textContent = activeVotingData.title;
-  votingDesc.textContent = activeVotingData.description;
+  votingDesc.textContent = activeVotingData.description || '';
 
   if(activeVotingData.status === 'draft'){
     statusEl.textContent = "Głosowanie jeszcze się nie rozpoczęło.";
@@ -68,6 +88,7 @@ async function loadActiveVoting(){
   }
 
   if(activeVotingData.status === 'voting'){
+    statusEl.textContent = "Głosowanie trwa.";
     votingBox.style.display = 'block';
     closedBox.style.display = 'none';
     attachVoteButtons();
@@ -76,6 +97,7 @@ async function loadActiveVoting(){
   }
 
   if(activeVotingData.status === 'closed'){
+    statusEl.textContent = "Głosowanie zakończone — wyniki:";
     votingBox.style.display = 'none';
     closedBox.style.display = 'block';
     showResults();
@@ -84,14 +106,18 @@ async function loadActiveVoting(){
 }
 
 function attachVoteButtons(){
+  btnFor.disabled = false;
+  btnAgainst.disabled = false;
+  btnAbstain.disabled = false;
+  voteResult.textContent = '';
   btnFor.onclick = ()=>submitVote('ZA');
   btnAgainst.onclick = ()=>submitVote('PRZECIW');
   btnAbstain.onclick = ()=>submitVote('WSTRZYMANIE');
 }
 
 async function submitVote(choice){
-  if(activeVotingData.status !== 'voting'){
-    voteResult.textContent = 'Głosowanie zakończone.';
+  if(!activeVotingData || activeVotingData.status !== 'voting'){
+    voteResult.textContent = 'Głosowanie niedostępne.';
     return;
   }
 
@@ -101,10 +127,13 @@ async function submitVote(choice){
     return;
   }
 
-  const ref = db.collection('votings').doc(activeVotingId).collection('votes').doc(uid);
+  const ref = db.collection('votings').doc(activeVotingId).collection('votes').doc(voterId);
 
   try{
+    // Attempt to create document with id == voterId. If already exists, Firestore will overwrite unless we use create() vs set().
+    // To be safe with rules, use set() — the rules check that request.resource.id == voterId and existence.
     await ref.set({
+      voterId,
       choice,
       displayName: name,
       ts: new Date().toISOString()
@@ -120,18 +149,22 @@ async function submitVote(choice){
 }
 
 async function checkIfAlreadyVoted(){
-  const ref = db.collection('votings').doc(activeVotingId).collection('votes').doc(uid);
+  if(!activeVotingId) return;
+  const ref = db.collection('votings').doc(activeVotingId).collection('votes').doc(voterId);
   const doc = await ref.get();
   if(doc.exists){
     const v = doc.data();
-    voteResult.textContent = 'Głos oddany: ' + v.choice;
+    voteResult.innerHTML = 'Głos oddany: <b>' + escapeHtml(v.choice) + '</b>';
     btnFor.disabled = true;
     btnAgainst.disabled = true;
     btnAbstain.disabled = true;
+  } else {
+    voteResult.textContent = '';
   }
 }
 
 async function showResults(){
+  if(!activeVotingId) return;
   const snap = await db.collection('votings').doc(activeVotingId).collection('votes').get();
 
   let counts = { ZA:0, PRZECIW:0, WSTRZYMANIE:0 };
@@ -139,7 +172,7 @@ async function showResults(){
 
   snap.forEach(doc=>{
     const v = doc.data();
-    counts[v.choice]++;
+    if (v.choice && counts.hasOwnProperty(v.choice)) counts[v.choice]++;
     list.push(v);
   });
 
@@ -156,6 +189,15 @@ async function showResults(){
     `ZA: ${Math.round(counts.ZA/total*100)}% — PRZECIW: ${Math.round(counts.PRZECIW/total*100)}% — WSTRZYMANIE: ${Math.round(counts.WSTRZYMANIE/total*100)}%`
     : '';
 
+  // sort by ts desc
   list.sort((a,b)=> (b.ts||'').localeCompare(a.ts||''));
-  recentDiv.innerHTML = list.map(v=>`${v.displayName} — <b>${v.choice}</b>`).join('<br>');
+  recentDiv.innerHTML = list.map(v=>escapeHtml((v.displayName||'—') + ' — ' + v.choice)).join('<br>');
+}
+
+// helper
+function escapeHtml(str){
+  return (str+'').replace(/[&<>'"]/g, function(tag) {
+    const charsToReplace = {'&':'&amp;','<':'&lt;','>':'&gt;',"'" :'&#39;','"':'&quot;'};
+    return charsToReplace[tag] || tag;
+  });
 }
