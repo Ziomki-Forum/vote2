@@ -41,8 +41,8 @@ auth.signInAnonymously().catch(err => {
 
 auth.onAuthStateChanged(async user => {
   if (!user) return;
-  uid = user.uid;
 
+  uid = user.uid;
   displayName = localStorage.getItem("displayName");
 
   if (!displayName) {
@@ -50,9 +50,11 @@ auth.onAuthStateChanged(async user => {
     votingsListDiv.style.display = "none";
     votingBox.style.display = "none";
     closedBox.style.display = "none";
+    statusEl.textContent = "Podaj swój identyfikator";
     return;
   }
 
+  idScreen.style.display = "none";
   loadVotingsList();
 });
 
@@ -107,107 +109,4 @@ async function loadVotingsList() {
 // wybranie głosowania
 async function selectVoting(id) {
   votingsListDiv.style.display = "none";
-  votingBox.style.display = "block";
-  closedBox.style.display = "none";
-  statusEl.textContent = "Ładowanie głosowania…";
-
-  try {
-    const doc = await db.collection("votings").doc(id).get();
-    if (!doc.exists) {
-      statusEl.textContent = "Nie znaleziono głosowania.";
-      return;
-    }
-    activeVotingId = doc.id;
-    activeVotingData = doc.data();
-
-    votingTitle.textContent = activeVotingData.title;
-    votingDesc.textContent = activeVotingData.description;
-
-    if (activeVotingData.status === "voting") {
-      attachVoteButtons();
-      checkIfAlreadyVoted();
-      statusEl.textContent = "Oddaj swój głos.";
-    } else if (activeVotingData.status === "closed") {
-      votingBox.style.display = "none";
-      closedBox.style.display = "block";
-      showResults();
-      statusEl.textContent = "Głosowanie zakończone.";
-    } else {
-      statusEl.textContent = "Głosowanie jeszcze się nie rozpoczęło.";
-      votingBox.style.display = "none";
-    }
-
-  } catch (e) {
-    console.error(e);
-    statusEl.textContent = "Błąd przy ładowaniu głosowania.";
-  }
-}
-
-// przyciski głosowania
-function attachVoteButtons() {
-  btnFor.onclick = () => submitVote("ZA");
-  btnAgainst.onclick = () => submitVote("PRZECIW");
-  btnAbstain.onclick = () => submitVote("WSTRZYMANIE");
-}
-
-async function submitVote(choice) {
-  if (activeVotingData.status !== "voting") {
-    voteResult.textContent = "Głosowanie zakończone.";
-    return;
-  }
-
-  const ref = db.collection("votings").doc(activeVotingId).collection("votes").doc(uid);
-
-  try {
-    await ref.set({
-      choice,
-      displayName,
-      ts: new Date().toISOString()
-    });
-    voteResult.textContent = "Głos oddany.";
-    disableButtons();
-  } catch (e) {
-    voteResult.textContent = "Błąd: " + e.message;
-  }
-}
-
-function disableButtons() {
-  btnFor.disabled = true;
-  btnAgainst.disabled = true;
-  btnAbstain.disabled = true;
-}
-
-async function checkIfAlreadyVoted() {
-  const ref = db.collection("votings").doc(activeVotingId).collection("votes").doc(uid);
-  const doc = await ref.get();
-  if (doc.exists) {
-    voteResult.textContent = "Głos oddany: " + doc.data().choice;
-    disableButtons();
-  }
-}
-
-async function showResults() {
-  const snap = await db.collection("votings").doc(activeVotingId).collection("votes").get();
-  let counts = { ZA: 0, PRZECIW: 0, WSTRZYMANIE: 0 };
-  let list = [];
-  snap.forEach(doc => {
-    const v = doc.data();
-    counts[v.choice]++;
-    list.push(v);
-  });
-  const total = counts.ZA + counts.PRZECIW + counts.WSTRZYMANIE;
-
-  countsDiv.innerHTML = `
-    ZA: ${counts.ZA}<br>
-    PRZECIW: ${counts.PRZECIW}<br>
-    WSTRZYMANIE: ${counts.WSTRZYMANIE}<br>
-    Łącznie: ${total}
-  `;
-
-  percentagesDiv.textContent = total ?
-    `ZA: ${Math.round(counts.ZA / total * 100)}% — PRZECIW: ${Math.round(counts.PRZECIW / total * 100)}% — WSTRZYMANIE: ${Math.round(counts.WSTRZYMANIE / total * 100)}%`
-    : "";
-
-  list.sort((a, b) => (b.ts || "").localeCompare(a.ts || ""));
-  recentDiv.innerHTML = list.map(v => `${v.displayName} — <b>${v.choice}</b>`).join("<br>");
-}
+  votingBox.style.display = "b
