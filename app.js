@@ -1,4 +1,3 @@
-// app.js
 if (typeof firebase === 'undefined') {
   document.getElementById('status').textContent = 'Błąd ładowania Firebase SDK.';
 }
@@ -29,7 +28,6 @@ const btnAbstain = document.getElementById('btn-abstain');
 const voteResult = document.getElementById('vote-result');
 const countsDiv = document.getElementById('counts');
 const percentagesDiv = document.getElementById('percentages');
-const recentDiv = document.getElementById('recent');
 
 let uid = null;
 let activeVotingId = null;
@@ -95,9 +93,9 @@ async function submitVote(choice){
     return;
   }
 
-  const name = sessionStorage.getItem('userDisplayName') || null;
+  const name = (displayNameInput.value || '').trim();
   if(!name){
-    voteResult.textContent = 'Brak identyfikatora — wróć do strony logowania.';
+    voteResult.textContent = 'Podaj imię.';
     return;
   }
 
@@ -111,14 +109,11 @@ async function submitVote(choice){
     });
 
     voteResult.textContent = 'Głos oddany.';
-    btnFor.disabled = true;
-    btnAgainst.disabled = true;
-    btnAbstain.disabled = true;
+    disableButtons();
   }catch(e){
     voteResult.textContent = 'Nie można oddać głosu: ' + e.message;
   }
 }
-
 
 async function checkIfAlreadyVoted(){
   const ref = db.collection('votings').doc(activeVotingId).collection('votes').doc(uid);
@@ -126,10 +121,14 @@ async function checkIfAlreadyVoted(){
   if(doc.exists){
     const v = doc.data();
     voteResult.textContent = 'Głos oddany: ' + v.choice;
-    btnFor.disabled = true;
-    btnAgainst.disabled = true;
-    btnAbstain.disabled = true;
+    disableButtons();
   }
+}
+
+function disableButtons(){
+  btnFor.disabled = true;
+  btnAgainst.disabled = true;
+  btnAbstain.disabled = true;
 }
 
 async function showResults(){
@@ -154,8 +153,4 @@ async function showResults(){
   percentagesDiv.textContent = total ? 
     `ZA: ${Math.round(counts.ZA/total*100)}% — PRZECIW: ${Math.round(counts.PRZECIW/total*100)}% — WSTRZYMANIE: ${Math.round(counts.WSTRZYMANIE/total*100)}%`
     : '';
-
-  // USUNIĘTE: recentDiv wyświetlający imiona i wybory
-  recentDiv.innerHTML = ""; 
 }
-
