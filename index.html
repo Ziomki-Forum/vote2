@@ -1,37 +1,46 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pl">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Głosowanie</title>
-    <link rel="stylesheet" href="style.css" />
-
-    <!-- Firebase -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.8/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.8/firebase-firestore.js"></script>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Głosowanie (anonimowe)</title>
+  <link rel="stylesheet" href="style.css"/>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 </head>
-
 <body>
-    <header>Aktualne głosowanie</header>
+  <div class="container">
+    <header><h1>Głosowanie — demo</h1></header>
 
-    <div class="container">
-        <h3 id="votingTitle">Ładowanie...</h3>
-        <p id="votingDesc"></p>
+    <section id="voting-area">
+      <p id="status">Ładowanie…</p>
 
-        <form id="voteForm" style="display: none;">
-            <label>Twój nick (niepowtarzalny):</label>
-            <input id="nickname" type="text" required />
+      <div id="voting-box" style="display:none;">
+        <h2 id="voting-title"></h2>
+        <p id="voting-desc"></p>
 
-            <button type="button" class="button green" onclick="submitVote('yes')">TAK</button>
-            <button type="button" class="button red" onclick="submitVote('no')">NIE</button>
-        </form>
+        <label>Podaj imię / identyfikator:</label>
+        <input id="display-name" placeholder="np. Jan Kowalski"/>
 
-        <p id="info"></p>
+        <div class="buttons">
+          <button id="btn-for">ZA</button>
+          <button id="btn-against">PRZECIW</button>
+          <button id="btn-abstain">WSTRZYMAJ SIĘ</button>
+        </div>
+        <p id="vote-result" class="muted"></p>
+      </div>
 
-        <h3>Ostatnie głosy:</h3>
-        <div id="recent" class="muted"></div>
-    </div>
+      <div id="closed-box" style="display:none;">
+        <h2>Wyniki głosowania</h2>
+        <div id="counts"></div>
+        <div id="percentages" class="muted"></div>
+      </div>
+    </section>
 
-    <script src="app.js"></script>
+    <footer><small>Głosowanie demo.</small></footer>
+  </div>
+
+  <script src="app.js"></script>
 </body>
 </html>
