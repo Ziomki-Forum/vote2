@@ -95,9 +95,9 @@ async function submitVote(choice){
     return;
   }
 
-  const name = (displayNameInput.value || '').trim();
+  const name = sessionStorage.getItem('userDisplayName') || null;
   if(!name){
-    voteResult.textContent = 'Podaj imię.';
+    voteResult.textContent = 'Brak identyfikatora — wróć do strony logowania.';
     return;
   }
 
@@ -118,6 +118,7 @@ async function submitVote(choice){
     voteResult.textContent = 'Nie można oddać głosu: ' + e.message;
   }
 }
+
 
 async function checkIfAlreadyVoted(){
   const ref = db.collection('votings').doc(activeVotingId).collection('votes').doc(uid);
