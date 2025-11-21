@@ -1,4 +1,3 @@
-// admin.js (compat)
 if (typeof firebase === 'undefined'){
   alert('Błąd: Firebase SDK nie załadowane');
 }
@@ -52,10 +51,17 @@ btnCreate.onclick = async () => {
   const desc = document.getElementById('new-desc').value.trim();
   if(!title) return alert('Podaj tytuł');
 
+  // sprawdź, czy istnieje niezamknięte
+  const active = await db.collection('votings').where('status','in',['draft','voting']).get();
+  if (!active.empty) {
+    alert("Nie możesz tworzyć nowej sprawy, dopóki poprzednia nie zostanie zamknięta.");
+    return;
+  }
+
   await db.collection('votings').add({
     title,
     description: desc,
-    status: 'draft', // NOWY STATUS
+    status: 'draft',
     created: new Date().toISOString()
   });
 
@@ -63,6 +69,8 @@ btnCreate.onclick = async () => {
   document.getElementById('new-desc').value = '';
   loadVotings();
 };
+
+
 
 async function loadVotings(){
   const snap = await db.collection('votings').orderBy('created','desc').get();
@@ -88,7 +96,6 @@ async function loadVotings(){
       }
 
       <button data-id="${id}" class="btn-delete">Usuń</button>
-      <button data-id="${id}" class="btn-show">Podgląd głosów (LIVE)</button>
 
       <div id="votes-${id}" style="margin-top:8px;"></div>
     `;
@@ -115,32 +122,14 @@ async function loadVotings(){
     b.onclick = async e=>{
       const id = e.currentTarget.dataset.id;
       if(!confirm('Usunąć sprawę?')) return;
-      await db.collection('votings').doc(id).delete();
+
+      const votes = await db.collection('votings').doc(id).collection('votes').get();
+      const batch = db.batch();
+      votes.forEach(v => batch.delete(v.ref));
+      batch.delete(db.collection('votings').doc(id));
+      await batch.commit();
+
       loadVotings();
-    };
-  });
-
-  document.querySelectorAll('.btn-show').forEach(b=>{
-    b.onclick = e=>{
-      const id = e.currentTarget.dataset.id;
-      const box = document.getElementById('votes-'+id);
-      box.innerHTML = 'Ładowanie…';
-
-      db.collection('votings').doc(id).collection('votes')
-        .orderBy('ts','desc')
-        .onSnapshot(snap=>{
-          if(snap.empty){
-            box.innerHTML = 'Brak głosów';
-            return;
-          }
-          let html = '<ul>';
-          snap.forEach(d=>{
-            const v = d.data();
-            html += `<li><b>${v.displayName||'—'}</b> — ${v.choice}</li>`;
-          });
-          html += '</ul>';
-          box.innerHTML = html;
-        });
     };
   });
 }
