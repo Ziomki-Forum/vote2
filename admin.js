@@ -56,4 +56,122 @@ auth.onAuthStateChanged(user=>{
 
 btnCreate.onclick = async () => {
   const title = document.getElementById('new-title').value.trim();
-  const desc = document.getElem
+  const desc = document.getElementById('new-desc').value.trim();
+  if(!title) return alert('Podaj tytuł');
+
+  await db.collection('votings').add({
+    title,
+    description: desc,
+    status: 'draft',
+    created: new Date().toISOString()
+  });
+
+  document.getElementById('new-title').value = '';
+  document.getElementById('new-desc').value = '';
+  loadVotings();
+};
+
+async function loadVotings(){
+  // Load all votings ordered by created desc
+  const snap = await db.collection('votings').orderBy('created','desc').get();
+  votingsList.innerHTML = '';
+
+  snap.forEach(doc=>{
+    const d = doc.data();
+    const id = doc.id;
+    const div = document.createElement('div');
+    div.className = 'box';
+
+    div.innerHTML = `
+      <b>${escapeHtml(d.title)}</b><br>
+      <small class="small">${escapeHtml(d.description || '')}</small><br>
+      Status: <b>${escapeHtml(d.status)}</b><br>
+
+      ${
+        d.status === 'draft'
+          ? `<button data-id="${id}" class="btn-start">Rozpocznij głosowanie</button>`
+          : d.status === 'voting'
+            ? `<button data-id="${id}" class="btn-stop">Zakończ głosowanie</button>`
+            : ''
+      }
+
+      <button data-id="${id}" class="btn-delete">Usuń</button>
+      <button data-id="${id}" class="btn-show">Podgląd głosów (LIVE)</button>
+
+      <div id="votes-${id}" style="margin-top:8px;"></div>
+    `;
+    votingsList.appendChild(div);
+  });
+
+  // attach handlers
+  document.querySelectorAll('.btn-start').forEach(b=>{
+    b.onclick = async e=>{
+      const id = e.currentTarget.dataset.id;
+      await db.collection('votings').doc(id).update({ status: 'voting' });
+      loadVotings();
+    };
+  });
+
+  document.querySelectorAll('.btn-stop').forEach(b=>{
+    b.onclick = async e=>{
+      const id = e.currentTarget.dataset.id;
+      await db.collection('votings').doc(id).update({ status: 'closed' });
+      loadVotings();
+    };
+  });
+
+  document.querySelectorAll('.btn-delete').forEach(b=>{
+    b.onclick = async e=>{
+      const id = e.currentTarget.dataset.id;
+      if(!confirm('Usunąć sprawę?')) return;
+      // Cleanup votes subcollection optionally (not required here)
+      await db.collection('votings').doc(id).delete();
+      loadVotings();
+    };
+  });
+
+  document.querySelectorAll('.btn-show').forEach(b=>{
+    b.onclick = e=>{
+      const id = e.currentTarget.dataset.id;
+      const box = document.getElementById('votes-'+id);
+
+      // if already listening -> unsubscribe (toggle)
+      if(liveListeners[id]){
+        liveListeners[id](); // unsubscribe
+        delete liveListeners[id];
+        box.innerHTML = 'Podgląd zatrzymany.';
+        return;
+      }
+
+      box.innerHTML = 'Ładowanie…';
+
+      const unsub = db.collection('votings').doc(id).collection('votes')
+        .orderBy('ts','desc')
+        .onSnapshot(snap=>{
+          if(snap.empty){
+            box.innerHTML = 'Brak głosów';
+            return;
+          }
+          let html = '<ul>';
+          snap.forEach(d=>{
+            const v = d.data();
+            html += `<li><b>${escapeHtml(v.displayName||'—')}</b> — ${escapeHtml(v.choice)}</li>`;
+          });
+          html += '</ul>';
+          box.innerHTML = html;
+        }, err=>{
+          box.innerHTML = 'Błąd: ' + err.message;
+        });
+
+      liveListeners[id] = unsub;
+    };
+  });
+}
+
+// simple sanitizer for innerHTML insertion
+function escapeHtml(str){
+  return (str+'').replace(/[&<>'"]/g, function(tag) {
+    const charsToReplace = {'&':'&amp;','<':'&lt;','>':'&gt;',"'" :'&#39;','"':'&quot;'};
+    return charsToReplace[tag] || tag;
+  });
+}
