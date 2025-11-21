@@ -44,7 +44,6 @@ auth.onAuthStateChanged(async user=>{
   uid = user.uid;
   statusEl.textContent = 'Połączono';
   await loadActiveVoting();
-  await loadPastVotings();
 });
 
 async function loadActiveVoting(){
@@ -143,66 +142,6 @@ async function showResults(){
     counts[v.choice]++;
     list.push(v);
   });
-  async function loadPastVotings() {
-  const pastList = document.getElementById('past-list');
-
-  if (!pastList) {
-    console.error("Brak elementu #past-list w HTML!");
-    return;
-  }
-
-  pastList.innerHTML = "Ładowanie…";
-
-  let snap;
-  try {
-    snap = await db.collection('votings')
-      .where('status', '==', 'closed')
-      .get();
-  } catch (err) {
-    pastList.innerHTML = "Błąd Firestore: " + err.message;
-    return;
-  }
-
-  if (snap.empty) {
-    pastList.innerHTML = "Brak zakończonych głosowań.";
-    return;
-  }
-
-  let html = "";
-
-  for (const doc of snap.docs) {
-    const voting = doc.data();
-
-    const votesSnap = await db.collection('votings')
-      .doc(doc.id)
-      .collection('votes')
-      .get();
-
-    let counts = { ZA: 0, PRZECIW: 0, WSTRZYMANIE: 0 };
-    votesSnap.forEach(v => {
-      const c = v.data().choice;
-      if (counts[c] !== undefined) counts[c]++;
-    });
-
-    const total = counts.ZA + counts.PRZECIW + counts.WSTRZYMANIE;
-
-    html += `
-      <div style="padding: 10px 0;">
-        <h3>${voting.title || "Bez tytułu"}</h3>
-        <p class="muted">${voting.description || ""}</p>
-        <b>Wyniki:</b><br>
-        ZA: ${counts.ZA}<br>
-        PRZECIW: ${counts.PRZECIW}<br>
-        WSTRZYMANIE: ${counts.WSTRZYMANIE}<br>
-        <b>Łącznie: ${total}</b>
-        <hr>
-      </div>
-    `;
-  }
-
-  pastList.innerHTML = html;
-}
-
 
   const total = counts.ZA + counts.PRZECIW + counts.WSTRZYMANIE;
 
