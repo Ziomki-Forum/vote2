@@ -159,3 +159,50 @@ async function showResults(){
   list.sort((a,b)=> (b.ts||'').localeCompare(a.ts||''));
   recentDiv.innerHTML = list.map(v=>`${v.displayName} — <b>${v.choice}</b>`).join('<br>');
 }
+async function loadPastVotings() {
+  const pastList = document.getElementById('past-list');
+
+  const snap = await db.collection('votings')
+    .where('status', '==', 'closed')
+    .orderBy('closedAt', 'desc')   // jeśli nie masz pola "closedAt", usuń to
+    .get();
+
+  if (snap.empty) {
+    pastList.innerHTML = "Brak zakończonych głosowań.";
+    return;
+  }
+
+  let html = "";
+
+  for (const doc of snap.docs) {
+    const voting = doc.data();
+    const votesSnap = await db.collection('votings')
+      .doc(doc.id)
+      .collection('votes')
+      .get();
+
+    let counts = { ZA: 0, PRZECIW: 0, WSTRZYMANIE: 0 };
+
+    votesSnap.forEach(v => {
+      counts[v.data().choice]++;
+    });
+
+    const total = counts.ZA + counts.PRZECIW + counts.WSTRZYMANIE;
+
+    html += `
+      <div class="past-item">
+        <h3>${voting.title}</h3>
+        <p class="muted">${voting.description || ""}</p>
+
+        <b>Wyniki:</b><br>
+        ZA: ${counts.ZA}<br>
+        PRZECIW: ${counts.PRZECIW}<br>
+        WSTRZYMANIE: ${counts.WSTRZYMANIE}<br>
+        <b>Łącznie: ${total}</b><br>
+        <hr>
+      </div>
+    `;
+  }
+
+  pastList.innerHTML = html;
+}
